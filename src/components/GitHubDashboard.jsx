@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, GitBranch, Zap } from 'lucide-react';
 
-const API_BASE = 'http://localhost:3001';
+/** Em produção (Vercel) deixe vazio — mesma origem. Em dev, vazio + proxy do Vite para :3001. */
+const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 const PAT_STORAGE_KEY = 'github-dashboard-pat';
 
 function readStoredPat() {
@@ -39,7 +40,7 @@ export default function GitHubDashboard() {
 
   const checkServer = async () => {
     try {
-      const response = await fetch(`${API_BASE}/health`);
+      const response = await fetch(`${API_BASE}/api/health`);
       return response.ok;
     } catch {
       return false;
@@ -61,7 +62,9 @@ export default function GitHubDashboard() {
       const isServerRunning = await checkServer();
 
       if (!isServerRunning) {
-        setError('Servidor não está rodando em http://localhost:3001');
+        setError(
+          'API indisponível. Em desenvolvimento, rode o backend: pnpm start (porta 3001) com o Vite ativo.'
+        );
         setServerStatus('offline');
         setLoading(false);
         return;
