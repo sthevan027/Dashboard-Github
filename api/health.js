@@ -1,18 +1,10 @@
-export default function handler(req, res) {
+function sendJson(res, status, body) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.end(JSON.stringify(body));
+}
 
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
-  }
-
-  if (req.method !== 'GET') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
-  }
-
-  res.json({
-    status: 'OK',
-    message: '✅ Servidor GitHub Dashboard rodando!',
-  });
+export default function handler(req, res) {
+  sendJson(res, 200, { status: 'OK', message: 'GitHub Dashboard rodando!' });
 }
