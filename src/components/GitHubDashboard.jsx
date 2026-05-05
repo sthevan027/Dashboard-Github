@@ -15,6 +15,8 @@ function resolveApiOrigin() {
 const API_ORIGIN = resolveApiOrigin();
 const API_BASE = `${API_ORIGIN}/api`;
 
+const PIN_STORAGE_KEY = 'gh_dashboard_pin';
+
 export default function GitHubDashboard() {
   const [pin, setPin] = useState('');
   const [pinSubmitted, setPinSubmitted] = useState(false);
@@ -27,6 +29,15 @@ export default function GitHubDashboard() {
 
   const pinRef = useRef(pin);
   useEffect(() => { pinRef.current = pin; }, [pin]);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem(PIN_STORAGE_KEY);
+    if (saved) {
+      setPin(saved);
+      pinRef.current = saved;
+      setPinSubmitted(true);
+    }
+  }, []);
 
   const checkServer = async () => {
     try {
@@ -107,6 +118,7 @@ export default function GitHubDashboard() {
       const result = await response.json();
 
       if (response.status === 401) {
+        sessionStorage.removeItem(PIN_STORAGE_KEY);
         setError('PIN inválido. Tente novamente.');
         setPinSubmitted(false);
         setLoading(false);
@@ -156,11 +168,18 @@ export default function GitHubDashboard() {
     }
   };
 
+  useEffect(() => {
+    if (pinSubmitted && !data) {
+      fetchGitHubData();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinSubmitted]);
+
   const handlePinSubmit = (e) => {
     e.preventDefault();
     if (!pin.trim()) return;
+    sessionStorage.setItem(PIN_STORAGE_KEY, pin.trim());
     setPinSubmitted(true);
-    fetchGitHubData();
   };
 
   const prRecommendations = useMemo(() => {
@@ -296,6 +315,7 @@ export default function GitHubDashboard() {
               <button
                 type="button"
                 onClick={() => {
+                  sessionStorage.removeItem(PIN_STORAGE_KEY);
                   setData(null);
                   setError('');
                   setNotice('');
