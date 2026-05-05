@@ -1,32 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, GitBranch, Zap } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, GitBranch, Lock, Zap } from 'lucide-react';
 
-/** Em produção (Vercel) deixe vazio — mesma origem. Em dev, vazio + proxy do Vite para :3001. */
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
-const PAT_STORAGE_KEY = 'github-dashboard-pat';
-
-function readStoredPat() {
-  try {
-    return localStorage.getItem(PAT_STORAGE_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function writeStoredPat(value) {
-  try {
-    if (value) {
-      localStorage.setItem(PAT_STORAGE_KEY, value);
-    } else {
-      localStorage.removeItem(PAT_STORAGE_KEY);
-    }
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
+const API_ORIGIN = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
+const API_BASE = `${API_ORIGIN}/api`;
 
 export default function GitHubDashboard() {
-  const [token, setToken] = useState(readStoredPat);
+  const [pin, setPin] = useState('');
+  const [pinSubmitted, setPinSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -34,13 +14,12 @@ export default function GitHubDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [serverStatus, setServerStatus] = useState(null);
 
-  useEffect(() => {
-    writeStoredPat(token.trim());
-  }, [token]);
+  const pinRef = useRef(pin);
+  useEffect(() => { pinRef.current = pin; }, [pin]);
 
   const checkServer = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/health`);
+      const response = await fetch(`${API_BASE}/health`);
       return response.ok;
     } catch {
       return false;
@@ -48,9 +27,8 @@ export default function GitHubDashboard() {
   };
 
   const fetchGitHubData = async () => {
-    if (!token) {
-      setError('Informe o token do GitHub (PAT com escopo repo)');
-      setNotice('');
+    if (!pin) {
+      setError('Informe o PIN para acessar o dashboard');
       return;
     }
 
@@ -62,9 +40,7 @@ export default function GitHubDashboard() {
       const isServerRunning = await checkServer();
 
       if (!isServerRunning) {
-        setError(
-          'API indisponível. Em desenvolvimento, rode o backend: pnpm start (porta 3001) com o Vite ativo.'
-        );
+        setError('Servidor não encontrado. Verifique a conexão.');
         setServerStatus('offline');
         setLoading(false);
         return;
@@ -108,23 +84,39 @@ export default function GitHubDashboard() {
         }
       `;
 
-      const response = await fetch(`${API_BASE}/api/github`, {
+      const response = await fetch(`${API_BASE}/github`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, query }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-pin': pinRef.current,
+        },
+        body: JSON.stringify({ query }),
       });
 
       const result = await response.json();
 
+      if (response.status === 401) {
+        setError('PIN inválido. Tente novamente.');
+        setPinSubmitted(false);
+        setLoading(false);
+        return;
+      }
+
+      if (!response.ok) {
+        setError(result.error || 'Erro ao conectar com o servidor');
+        setLoading(false);
+        return;
+      }
+
       if (result.errors) {
-        setError(result.errors[0]?.message || 'Token inválido ou sem permissão');
+        setError(result.errors[0]?.message || 'Erro na consulta do GitHub');
         setLoading(false);
         return;
       }
 
       const viewer = result.data?.viewer;
       if (!viewer) {
-        setError('Não consegui autenticar. Token válido?');
+        setError('Não foi possível autenticar com o GitHub. Verifique o token no servidor.');
         setLoading(false);
         return;
       }
@@ -153,6 +145,13 @@ export default function GitHubDashboard() {
     }
   };
 
+  const handlePinSubmit = (e) => {
+    e.preventDefault();
+    if (!pin.trim()) return;
+    setPinSubmitted(true);
+    fetchGitHubData();
+  };
+
   const prRecommendations = useMemo(() => {
     if (!data?.openPRs?.length) return [];
     return data.openPRs
@@ -170,14 +169,7 @@ export default function GitHubDashboard() {
 
   const issueRecommendations = useMemo(() => {
     if (!data?.openIssues?.length) return [];
-    const priority = {
-      critical: 5,
-      blocker: 4,
-      bug: 3,
-      high: 3,
-      medium: 2,
-      low: 1,
-    };
+    const priority = { critical: 5, blocker: 4, bug: 3, high: 3, medium: 2, low: 1 };
 
     return data.openIssues
       .map((issue) => {
@@ -192,7 +184,6 @@ export default function GitHubDashboard() {
           }),
           2
         );
-
         return {
           ...issue,
           priorityScore,
@@ -219,64 +210,69 @@ export default function GitHubDashboard() {
           <p className="text-slate-300">Acompanhe suas PRs, Issues e recomendações</p>
         </div>
 
-        {!data && (
-          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
-            <div className="space-y-4">
-              <div
-                className={`border rounded p-3 ${
-                  serverStatus === 'online'
-                    ? 'bg-green-900/30 border-green-700'
-                    : serverStatus === 'offline'
-                      ? 'bg-red-900/30 border-red-700'
-                      : 'bg-slate-700/50 border-slate-600'
-                }`}
-              >
-                <p className="text-sm">
-                  {serverStatus === 'online' && 'Servidor conectado.'}
-                  {serverStatus === 'offline' && 'Servidor não encontrado.'}
-                  {!serverStatus && 'Verifique o servidor ao clicar em Carregar.'}
-                </p>
-              </div>
-
+        {!pinSubmitted && (
+          <div className="max-w-md mx-auto bg-slate-800/50 border border-slate-700 rounded-lg p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <Lock className="w-6 h-6 text-blue-400" />
+              <h2 className="text-xl font-semibold">Acesso protegido</h2>
+            </div>
+            <form onSubmit={handlePinSubmit} className="space-y-4">
               <div>
-                <label className="text-sm text-slate-300 block mb-2">Personal Access Token</label>
+                <label className="text-sm text-slate-300 block mb-2">PIN de acesso</label>
                 <input
                   type="password"
-                  placeholder="ghp_..."
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  className="w-full bg-slate-700 border border-slate-600 rounded px-4 py-2 text-white"
+                  placeholder="Digite seu PIN"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  autoFocus
+                  className="w-full bg-slate-700 border border-slate-600 rounded px-4 py-3 text-white text-center text-lg tracking-widest"
                 />
-                <p className="text-xs text-slate-500 mt-2">
-                  Os dados refletem a conta dona do token (GraphQL viewer). O PAT fica salvo neste
-                  navegador (localStorage).
-                </p>
-                {token && (
-                  <button
-                    type="button"
-                    onClick={() => setToken('')}
-                    className="text-xs text-slate-500 hover:text-red-300 mt-2 underline"
-                  >
-                    Remover token salvo
-                  </button>
-                )}
               </div>
-
-              <button
-                type="button"
-                onClick={fetchGitHubData}
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 px-6 py-3 rounded font-semibold transition text-lg"
-              >
-                {loading ? 'Carregando...' : 'Carregar Dashboard'}
-              </button>
 
               {error && (
                 <div className="bg-red-900/30 border border-red-700 rounded p-3">
                   <p className="text-red-300 text-sm">{error}</p>
                 </div>
               )}
+
+              <button
+                type="submit"
+                disabled={loading || !pin.trim()}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 px-6 py-3 rounded font-semibold transition text-lg"
+              >
+                {loading ? 'Verificando...' : 'Entrar'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {pinSubmitted && !data && (
+          <div className="max-w-md mx-auto bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+            <div
+              className={`border rounded p-3 mb-4 ${
+                serverStatus === 'online'
+                  ? 'bg-green-900/30 border-green-700'
+                  : serverStatus === 'offline'
+                    ? 'bg-red-900/30 border-red-700'
+                    : 'bg-slate-700/50 border-slate-600'
+              }`}
+            >
+              <p className="text-sm">
+                {serverStatus === 'online' && 'Servidor conectado.'}
+                {serverStatus === 'offline' && 'Servidor não encontrado.'}
+                {!serverStatus && 'Conectando...'}
+              </p>
             </div>
+
+            {error && (
+              <div className="bg-red-900/30 border border-red-700 rounded p-3 mb-4">
+                <p className="text-red-300 text-sm">{error}</p>
+              </div>
+            )}
+
+            {loading && (
+              <p className="text-slate-400 text-center">Carregando dados do GitHub...</p>
+            )}
           </div>
         )}
 
@@ -294,10 +290,12 @@ export default function GitHubDashboard() {
                   setNotice('');
                   setServerStatus(null);
                   setActiveTab('overview');
+                  setPinSubmitted(false);
+                  setPin('');
                 }}
                 className="text-slate-400 hover:text-slate-200 text-sm px-3 py-1 hover:bg-slate-700 rounded"
               >
-                Trocar perfil
+                Sair
               </button>
             </div>
 
