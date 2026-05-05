@@ -5,6 +5,35 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+const WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000;
+const MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX) || 30;
+
+/** @type {Map<string, { count: number; resetAt: number }>} */
+const rateLimitStore = new Map();
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return String(forwarded).split(',')[0].trim();
+  const realIp = req.headers['x-real-ip'];
+  if (realIp) return String(realIp).trim();
+  return req.socket?.remoteAddress ?? 'unknown';
+}
+
+function checkRateLimit(req) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const entry = rateLimitStore.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitStore.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return false;
+  }
+
+  entry.count += 1;
+  if (entry.count > MAX_REQUESTS) return true;
+  return false;
+}
+
 function parseBody(req) {
   const raw = req.body;
   if (raw == null) return {};
@@ -41,6 +70,11 @@ export default async function handler(req, res) {
 
   if (!ALLOWED_METHODS.includes(req.method)) {
     sendJson(res, 405, { error: 'Método não permitido' });
+    return;
+  }
+
+  if (checkRateLimit(req)) {
+    sendJson(res, 429, { error: 'Rate limit excedido. Tente novamente em instantes.' });
     return;
   }
 

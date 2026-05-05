@@ -1,7 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, GitBranch, Lock, Zap } from 'lucide-react';
 
-const API_ORIGIN = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
+function resolveApiOrigin() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('apiBase');
+    if (fromQuery) return fromQuery.replace(/\/$/, '');
+  } catch {
+    // não há window em ambientes SSR/teste
+  }
+  return (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
+}
+
+const API_ORIGIN = resolveApiOrigin();
 const API_BASE = `${API_ORIGIN}/api`;
 
 export default function GitHubDashboard() {

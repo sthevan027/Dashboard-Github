@@ -22,7 +22,12 @@ function createWindow() {
     win.loadURL('http://localhost:5173');
   } else {
     const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
-    win.loadURL(pathToFileURL(indexPath).href);
+    const fileUrl = pathToFileURL(indexPath);
+    const apiBase = process.env.ELECTRON_API_BASE || process.env.VITE_API_BASE || '';
+    if (apiBase) {
+      fileUrl.searchParams.set('apiBase', apiBase);
+    }
+    win.loadURL(fileUrl.href);
   }
 }
 
