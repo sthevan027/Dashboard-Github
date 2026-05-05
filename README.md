@@ -36,7 +36,6 @@ Crie um arquivo `.env` local (ou use a Vercel em produção). Exemplo em `.env.e
 
 - **Opcionais**:
   - `VITE_API_BASE`: origem do backend (sem barra final). Em Vercel pode ficar vazio.
-  - `ELECTRON_API_BASE`: origem do backend usada pelo Electron empacotado (sem barra final).
   - `RATE_LIMIT_WINDOW_MS`: janela do rate limit (default `60000`).
   - `RATE_LIMIT_MAX`: máximo de requests por janela (default `30`).
 
@@ -90,8 +89,6 @@ Na barra de endereço, clique no ícone de **instalação** (ou vá em Menu → 
 Ícones:
 - `public/icon-192.png` — ícone padrão
 - `public/icon-512.png` — ícone de alta resolução / maskable (Android)
-
-> **Electron** também está disponível como opcional (`pnpm electron:dev` / `pnpm electron:build`), mas o PWA é o caminho recomendado para uso em mobile e desktop.
 
 ## Endpoints úteis
 

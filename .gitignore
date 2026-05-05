@@ -1,6 +1,5 @@
 node_modules
 dist
-electron-release
 release
 .env
 .claude
