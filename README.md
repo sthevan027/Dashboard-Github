@@ -1,4 +1,4 @@
-# GitHub Activity Dashboard (PWA + Electron + Vercel)
+# GitHub Activity Dashboard (PWA + Vercel)
 
 Dashboard para acompanhar **PRs** e **Issues** abertas via GitHub GraphQL, com acesso protegido por **PIN** e **token do GitHub mantido apenas no backend**.
 
@@ -10,14 +10,14 @@ Dashboard para acompanhar **PRs** e **Issues** abertas via GitHub GraphQL, com a
   - **Dev local**: Express em `server.js` (porta `3001`) + proxy do Vite.
 - **Auth do app**: o cliente envia `x-app-pin`; o backend valida contra `APP_PIN`.
 - **Token GitHub**: `GITHUB_TOKEN` só existe no backend (Vercel/.env local). **Nunca vai para o frontend**.
-- **PWA**: `vite-plugin-pwa` com `icon-192.png` e `icon-512.png`.
-- **Desktop**: Electron empacota o build do Vite e aponta para o backend (Vercel) em produção.
+- **PWA**: `vite-plugin-pwa` com `icon-192.png` e `icon-512.png` — instalável no **mobile** e no **desktop** (Chrome/Edge).
+  - O PIN sobrevive ao F5 (guardado no `sessionStorage`) e some ao fechar o navegador/app.
 
 ## Segurança (como funciona)
 
 Fluxo do request:
 
-1. O usuário digita o **PIN** no app (não é persistido).
+1. O usuário digita o **PIN** no app. O PIN é guardado no `sessionStorage` (sobrevive ao F5, some ao fechar a aba/janela).
 2. O app chama `POST /api/github` com:
    - Header `x-app-pin: <PIN>`
    - Body `{ "query": "..." }`
@@ -77,39 +77,23 @@ Notas:
 - `vercel.json` define `outputDirectory: dist` e rewrite para SPA.
 - As rotas serverless ficam em `api/*` (ex.: `/api/health`, `/api/github`).
 
-## PWA (celular)
+## PWA (mobile + desktop)
 
-Depois do deploy (ou rodando local), abra o site no celular e use “Adicionar à tela inicial”.
+Após o deploy na Vercel (ou rodando local com `pnpm dev:full`):
+
+### Mobile (Android/iOS)
+Abra o site no navegador do celular e use **"Adicionar à tela inicial"**. O app abre em modo standalone (sem barra de navegador) com o ícone correto.
+
+### Desktop (Chrome / Edge)
+Na barra de endereço, clique no ícone de **instalação** (ou vá em Menu → Instalar). O app cria um atalho e abre em janela própria.
 
 Ícones:
-- `public/icon-192.png`
-- `public/icon-512.png`
+- `public/icon-192.png` — ícone padrão
+- `public/icon-512.png` — ícone de alta resolução / maskable (Android)
 
-## Electron (desktop)
-
-### Dev (janela Electron apontando para o Vite)
-
-```bash
-pnpm electron:dev
-```
-
-### Build (empacotar)
-
-Para o app empacotado funcionar com backend remoto (Vercel), defina:
-- `ELECTRON_API_BASE=https://seu-projeto.vercel.app`
-
-E então rode:
-
-```bash
-pnpm electron:build
-```
-
-O Electron injeta `?apiBase=...` ao carregar o `dist/index.html`, para que o frontend chame o backend corretamente mesmo em `file://`.
-
-Saída do build: `electron-release/`
+> **Electron** também está disponível como opcional (`pnpm electron:dev` / `pnpm electron:build`), mas o PWA é o caminho recomendado para uso em mobile e desktop.
 
 ## Endpoints úteis
 
 - `GET /api/health`: health check.
 - `POST /api/github`: proxy do GitHub GraphQL (exige `x-app-pin`).
-
