@@ -319,6 +319,7 @@ export default function GitHubDashboard() {
       ]).size;
 
       setData({ user: { login: viewer.login }, openPRs: allPRs, openIssues: allIssues, activeRepos });
+      setPinSubmitted(true);
       if (allPRs.length === 0 && allIssues.length === 0) setNotice('Nenhuma PR ou Issue aberta. Tudo limpo!');
     } catch (err) {
       setError(`Erro: ${err.message}`);
@@ -336,7 +337,7 @@ export default function GitHubDashboard() {
     if (e?.preventDefault) e.preventDefault();
     if (!pin.trim()) return;
     sessionStorage.setItem(PIN_STORAGE_KEY, pin.trim());
-    setPinSubmitted(true);
+    void fetchGitHubData();
   };
 
   const handleDigit = (d) => {
