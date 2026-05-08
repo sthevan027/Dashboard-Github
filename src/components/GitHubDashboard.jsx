@@ -340,7 +340,7 @@ export default function GitHubDashboard() {
   };
 
   const handleDigit = (d) => {
-    if (pin.length < 8) setPin(prev => prev + d);
+    setPin(prev => prev.length < 8 ? prev + d : prev);
   };
 
   const handleBackspace = () => setPin(prev => prev.slice(0, -1));
