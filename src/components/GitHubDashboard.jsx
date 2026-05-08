@@ -341,7 +341,7 @@ export default function GitHubDashboard() {
   };
 
   const handleDigit = (d) => {
-    setPin(prev => prev.length < 8 ? prev + d : prev);
+    setPin(prev => prev.length < 6 ? prev + d : prev);
   };
 
   const handleBackspace = () => setPin(prev => prev.slice(0, -1));
@@ -458,7 +458,7 @@ export default function GitHubDashboard() {
 
         {/* Tela de login */}
         {!pinSubmitted && (() => {
-          const totalDots = Math.min(8, Math.max(4, pin.length + (pin.length < 8 ? 1 : 0)));
+          const totalDots = 6;
           const keypadRows = [
             ['1','2','3'],
             ['4','5','6'],
@@ -571,22 +571,19 @@ export default function GitHubDashboard() {
                     <button
                       type="button"
                       onClick={handlePinSubmit}
-                      disabled={loading || pin.length === 0}
+                      disabled={pin.length === 0}
                       className="flex items-center justify-center rounded-2xl transition-all duration-100 active:scale-90 disabled:opacity-30"
                       style={{
                         width: 80, height: 60,
-                        background: pin.length > 0 && !loading ? '#238636' : gh.surface,
-                        border: `1px solid ${pin.length > 0 && !loading ? '#2ea043' : gh.border}`,
+                        background: pin.length > 0 ? '#238636' : gh.surface,
+                        border: `1px solid ${pin.length > 0 ? '#2ea043' : gh.border}`,
                         color: '#fff',
                       }}
-                      onPointerDown={e => { if (pin.length && !loading) e.currentTarget.style.background = '#2ea043'; }}
-                      onPointerUp={e => { e.currentTarget.style.background = pin.length > 0 && !loading ? '#238636' : gh.surface; }}
-                      onPointerLeave={e => { e.currentTarget.style.background = pin.length > 0 && !loading ? '#238636' : gh.surface; }}
+                      onPointerDown={e => { if (pin.length) e.currentTarget.style.background = '#2ea043'; }}
+                      onPointerUp={e => { e.currentTarget.style.background = pin.length > 0 ? '#238636' : gh.surface; }}
+                      onPointerLeave={e => { e.currentTarget.style.background = pin.length > 0 ? '#238636' : gh.surface; }}
                     >
-                      {loading
-                        ? <RefreshCw className="w-5 h-5 animate-spin" />
-                        : <Check className="w-5 h-5" />
-                      }
+                      <Check className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
