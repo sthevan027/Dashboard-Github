@@ -3,7 +3,7 @@ import {
   AlertCircle, GitBranch, Lock, Zap,
   MessageSquare, ExternalLink, RefreshCw, Clock,
   ChevronDown, ChevronUp, User, BookOpen, CheckCircle,
-  GitPullRequest,
+  GitPullRequest, Delete, Check,
 } from 'lucide-react';
 
 function resolveApiOrigin() {
@@ -319,6 +319,7 @@ export default function GitHubDashboard() {
       ]).size;
 
       setData({ user: { login: viewer.login }, openPRs: allPRs, openIssues: allIssues, activeRepos });
+      setPinSubmitted(true);
       if (allPRs.length === 0 && allIssues.length === 0) setNotice('Nenhuma PR ou Issue aberta. Tudo limpo!');
     } catch (err) {
       setError(`Erro: ${err.message}`);
@@ -333,11 +334,17 @@ export default function GitHubDashboard() {
   }, [pinSubmitted]);
 
   const handlePinSubmit = (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     if (!pin.trim()) return;
     sessionStorage.setItem(PIN_STORAGE_KEY, pin.trim());
-    setPinSubmitted(true);
+    void fetchGitHubData();
   };
+
+  const handleDigit = (d) => {
+    setPin(prev => prev.length < 6 ? prev + d : prev);
+  };
+
+  const handleBackspace = () => setPin(prev => prev.slice(0, -1));
 
   const handleLogout = () => {
     sessionStorage.removeItem(PIN_STORAGE_KEY);
@@ -450,56 +457,141 @@ export default function GitHubDashboard() {
         </div>
 
         {/* Tela de login */}
-        {!pinSubmitted && (
-          <div className="max-w-sm mx-auto mt-12">
-            <div className="text-center mb-6">
-              <div
-                className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-4"
-                style={{ background: '#21262d', border: `1px solid ${gh.border}` }}
-              >
-                <Lock className="w-5 h-5" style={{ color: gh.muted }} />
-              </div>
-              <h2 className="font-semibold text-lg" style={{ color: gh.text }}>Acesso protegido</h2>
-              <p className="text-sm mt-1" style={{ color: gh.muted }}>Insira o PIN para continuar</p>
-            </div>
+        {!pinSubmitted && (() => {
+          const totalDots = 6;
+          const keypadRows = [
+            ['1','2','3'],
+            ['4','5','6'],
+            ['7','8','9'],
+          ];
+          return (
+            <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 96px)' }}>
+              <div className="w-full max-w-xs px-4 flex flex-col items-center gap-6">
 
-            <form onSubmit={handlePinSubmit} className="space-y-3">
-              <input
-                type="password"
-                placeholder="PIN de acesso"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                autoFocus
-                className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
-                style={{
-                  background: '#0d1117',
-                  border: `1px solid ${gh.border}`,
-                  color: gh.text,
-                }}
-                onFocus={e => e.target.style.borderColor = '#388bfd'}
-                onBlur={e => e.target.style.borderColor = gh.border}
-              />
-
-              {error && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm" style={{ background: '#3d1a1a', border: '1px solid #6e2b2b', color: '#f85149' }}>
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  {error}
+                {/* Ícone + título */}
+                <div className="text-center">
+                  <div
+                    className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4"
+                    style={{ background: '#161b22', border: `1px solid ${gh.border}` }}
+                  >
+                    <Lock className="w-7 h-7" style={{ color: gh.muted }} />
+                  </div>
+                  <h2 className="font-bold text-xl" style={{ color: gh.text }}>Acesso protegido</h2>
+                  <p className="text-sm mt-1" style={{ color: gh.muted }}>Insira o PIN para continuar</p>
                 </div>
-              )}
 
-              <button
-                type="submit"
-                disabled={loading || !pin.trim()}
-                className="w-full py-2 px-4 rounded-md text-sm font-semibold transition-colors disabled:opacity-50"
-                style={{ background: '#238636', color: '#fff', border: '1px solid #2ea043' }}
-                onMouseEnter={e => !e.currentTarget.disabled && (e.currentTarget.style.background = '#2ea043')}
-                onMouseLeave={e => e.currentTarget.style.background = '#238636'}
-              >
-                {loading ? 'Verificando...' : 'Entrar'}
-              </button>
-            </form>
-          </div>
-        )}
+                {/* Dots de PIN */}
+                <div className="flex items-center gap-3">
+                  {Array.from({ length: totalDots }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-full transition-all duration-150"
+                      style={{
+                        width: 14,
+                        height: 14,
+                        background: i < pin.length ? gh.text : 'transparent',
+                        border: `2px solid ${i < pin.length ? gh.text : gh.muted}`,
+                        transform: i === pin.length - 1 ? 'scale(1.2)' : 'scale(1)',
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {/* Erro */}
+                {error && (
+                  <div className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ background: '#3d1a1a', border: '1px solid #6e2b2b', color: '#f85149' }}>
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {error}
+                  </div>
+                )}
+
+                {/* Keypad */}
+                <div className="flex flex-col items-center gap-3 w-full">
+                  {keypadRows.map((row, ri) => (
+                    <div key={ri} className="flex gap-3">
+                      {row.map(d => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => handleDigit(d)}
+                          className="flex items-center justify-center rounded-2xl text-xl font-semibold select-none transition-all duration-100 active:scale-90"
+                          style={{
+                            width: 80, height: 60,
+                            background: gh.surface,
+                            border: `1px solid ${gh.border}`,
+                            color: gh.text,
+                          }}
+                          onPointerDown={e => { e.currentTarget.style.background = '#21262d'; }}
+                          onPointerUp={e => { e.currentTarget.style.background = gh.surface; }}
+                          onPointerLeave={e => { e.currentTarget.style.background = gh.surface; }}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+
+                  {/* Última linha: backspace, 0, enter */}
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleBackspace}
+                      disabled={pin.length === 0}
+                      className="flex items-center justify-center rounded-2xl transition-all duration-100 active:scale-90 disabled:opacity-30"
+                      style={{
+                        width: 80, height: 60,
+                        background: gh.surface,
+                        border: `1px solid ${gh.border}`,
+                        color: gh.muted,
+                      }}
+                      onPointerDown={e => { if (pin.length) e.currentTarget.style.background = '#21262d'; }}
+                      onPointerUp={e => { e.currentTarget.style.background = gh.surface; }}
+                      onPointerLeave={e => { e.currentTarget.style.background = gh.surface; }}
+                    >
+                      <Delete className="w-5 h-5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDigit('0')}
+                      className="flex items-center justify-center rounded-2xl text-xl font-semibold select-none transition-all duration-100 active:scale-90"
+                      style={{
+                        width: 80, height: 60,
+                        background: gh.surface,
+                        border: `1px solid ${gh.border}`,
+                        color: gh.text,
+                      }}
+                      onPointerDown={e => { e.currentTarget.style.background = '#21262d'; }}
+                      onPointerUp={e => { e.currentTarget.style.background = gh.surface; }}
+                      onPointerLeave={e => { e.currentTarget.style.background = gh.surface; }}
+                    >
+                      0
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handlePinSubmit}
+                      disabled={pin.length === 0}
+                      className="flex items-center justify-center rounded-2xl transition-all duration-100 active:scale-90 disabled:opacity-30"
+                      style={{
+                        width: 80, height: 60,
+                        background: pin.length > 0 ? '#238636' : gh.surface,
+                        border: `1px solid ${pin.length > 0 ? '#2ea043' : gh.border}`,
+                        color: '#fff',
+                      }}
+                      onPointerDown={e => { if (pin.length) e.currentTarget.style.background = '#2ea043'; }}
+                      onPointerUp={e => { e.currentTarget.style.background = pin.length > 0 ? '#238636' : gh.surface; }}
+                      onPointerLeave={e => { e.currentTarget.style.background = pin.length > 0 ? '#238636' : gh.surface; }}
+                    >
+                      <Check className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Conectando */}
         {pinSubmitted && !data && (
